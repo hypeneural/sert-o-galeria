@@ -60,7 +60,7 @@ export function MediaCard({ item, isFavorite, onOpen, onToggleFav, priority }: P
   return (
     <div
       ref={ref}
-      className="cv-auto"
+      className="relative cv-auto"
       style={{ aspectRatio: item.aspectRatio, contentVisibility: "auto" }}
     >
       <button
@@ -138,10 +138,6 @@ export function MediaCard({ item, isFavorite, onOpen, onToggleFav, priority }: P
         aria-label={isFavorite ? "Remover dos favoritos" : "Salvar nos favoritos"}
         aria-pressed={isFavorite}
         className="absolute bottom-2 right-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition active:scale-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        style={{
-          // Position relative to parent div (which holds the aspect ratio)
-          position: "absolute",
-        }}
       >
         <Heart
           className={`h-4 w-4 ${isFavorite ? "fill-highlight text-highlight" : "text-white"}`}
