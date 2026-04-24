@@ -2,8 +2,10 @@ export type MediaItem = {
   id: string;
   type: "photo" | "video";
   thumbnailUrl: string;
+  thumbnailSrcSet: string;
   previewUrl: string;
   fullUrl: string;
+  lqipUrl: string; // tiny blurred placeholder
   videoUrl?: string;
   width: number;
   height: number;
@@ -81,15 +83,22 @@ function buildItems(): MediaItem[] {
     const author = authors[i % authors.length];
     const isFeatured = i % 7 === 0;
 
+    const ratio = (px: number) => Math.max(1, Math.round((px * h) / w));
+    const thumb = (px: number) => pic(seed, px, ratio(px));
+    const srcSet = `${thumb(320)} 320w, ${thumb(480)} 480w, ${thumb(640)} 640w, ${thumb(800)} 800w`;
+    const lqip = `${pic(seed, 24, ratio(24))}.webp?blur=4`;
+
     if (isVideo) {
       const vUrl = sampleVideos[videoIdx % sampleVideos.length];
       videoIdx++;
       items.push({
         id: `m-${i + 1}`,
         type: "video",
-        thumbnailUrl: pic(seed, 480, Math.round((480 * h) / w)),
-        previewUrl: pic(seed, 800, Math.round((800 * h) / w)),
-        fullUrl: pic(seed, 1600, Math.round((1600 * h) / w)),
+        thumbnailUrl: thumb(480),
+        thumbnailSrcSet: srcSet,
+        previewUrl: thumb(900),
+        fullUrl: thumb(1600),
+        lqipUrl: lqip,
         videoUrl: vUrl,
         width: w,
         height: h,
@@ -103,9 +112,11 @@ function buildItems(): MediaItem[] {
       items.push({
         id: `m-${i + 1}`,
         type: "photo",
-        thumbnailUrl: pic(seed, 480, Math.round((480 * h) / w)),
-        previewUrl: pic(seed, 1000, Math.round((1000 * h) / w)),
-        fullUrl: pic(seed, 1800, Math.round((1800 * h) / w)),
+        thumbnailUrl: thumb(480),
+        thumbnailSrcSet: srcSet,
+        previewUrl: thumb(1000),
+        fullUrl: thumb(1800),
+        lqipUrl: lqip,
         width: w,
         height: h,
         aspectRatio: w / h,
