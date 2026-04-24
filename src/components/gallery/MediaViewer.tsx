@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import {
   X,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { MediaItem } from "@/lib/media-data";
 import { toast } from "sonner";
+import { useNetwork } from "@/hooks/use-network";
 
 type Props = {
   items: MediaItem[];
@@ -35,6 +36,8 @@ export function MediaViewer({
 }: Props) {
   const current = items[index];
   const [showChrome, setShowChrome] = useState(true);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const { isSlow } = useNetwork();
 
   // Keyboard nav
   useEffect(() => {
@@ -42,10 +45,14 @@ export function MediaViewer({
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowRight" && index < items.length - 1) onIndexChange(index + 1);
       else if (e.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
+      else if (e.key === " " || e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        onToggleFav(current.id);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, items.length, onClose, onIndexChange]);
+  }, [index, items.length, onClose, onIndexChange, onToggleFav, current?.id]);
 
   // Lock body scroll
   useEffect(() => {
@@ -55,6 +62,39 @@ export function MediaViewer({
       document.body.style.overflow = prev;
     };
   }, []);
+
+  // Focus close button on mount for keyboard users
+  useEffect(() => {
+    closeBtnRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // Auto-hide chrome after 3.5s of inactivity
+  useEffect(() => {
+    if (!showChrome) return;
+    const t = window.setTimeout(() => setShowChrome(false), 3500);
+    return () => window.clearTimeout(t);
+  }, [showChrome, index]);
+
+  // Preload neighbors (skipped on slow networks)
+  useEffect(() => {
+    if (isSlow) return;
+    const neighbors: MediaItem[] = [];
+    if (items[index + 1]) neighbors.push(items[index + 1]);
+    if (items[index - 1]) neighbors.push(items[index - 1]);
+    const links: HTMLLinkElement[] = neighbors
+      .filter((n) => n.type === "photo")
+      .map((n) => {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "image";
+        link.href = n.previewUrl;
+        document.head.appendChild(link);
+        return link;
+      });
+    return () => {
+      links.forEach((l) => l.remove());
+    };
+  }, [index, items, isSlow]);
 
   const handleShare = async () => {
     const url =
@@ -90,24 +130,24 @@ export function MediaViewer({
   };
 
   const handleSwipe = (_e: unknown, info: PanInfo) => {
-    const SWIPE = 80;
-    const VEL = 400;
+    const SWIPE = 60;
+    const VEL = 350;
     if (info.offset.x < -SWIPE || info.velocity.x < -VEL) {
       if (index < items.length - 1) onIndexChange(index + 1);
     } else if (info.offset.x > SWIPE || info.velocity.x > VEL) {
       if (index > 0) onIndexChange(index - 1);
+    } else if (info.offset.y > 120 || info.velocity.y > 600) {
+      onClose();
     }
   };
 
-  const handleVerticalDrag = (_e: unknown, info: PanInfo) => {
-    if (info.offset.y > 120 || info.velocity.y > 600) onClose();
-  };
+  if (!current) return null;
 
   return (
     <motion.div
       role="dialog"
       aria-modal="true"
-      aria-label="Visualizador de mídia"
+      aria-label={`Visualizando ${index + 1} de ${items.length}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -122,46 +162,49 @@ export function MediaViewer({
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -20, opacity: 0 }}
-            className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 px-3 py-3 safe-top glass-dark"
+            className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-3 py-3 safe-top glass-dark"
             onClick={(e) => e.stopPropagation()}
           >
             <button
+              ref={closeBtnRef}
               onClick={onClose}
-              aria-label="Fechar"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95"
+              aria-label="Fechar visualizador"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden />
             </button>
 
-            <div className="text-sm font-medium tabular-nums text-white/90">
-              {index + 1} de {items.length}
+            <div className="text-sm font-medium tabular-nums text-white/90" aria-live="polite">
+              {index + 1} / {items.length}
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onToggleFav(current.id)}
-                aria-label={isFavorite(current.id) ? "Remover dos favoritos" : "Favoritar"}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95"
+                aria-label={isFavorite(current.id) ? "Remover dos favoritos" : "Salvar nos favoritos"}
+                aria-pressed={isFavorite(current.id)}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
               >
                 <Heart
                   className={`h-5 w-5 ${
                     isFavorite(current.id) ? "fill-highlight text-highlight" : "text-white"
                   }`}
+                  aria-hidden
                 />
               </button>
               <button
                 onClick={handleShare}
-                aria-label="Compartilhar"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95"
+                aria-label="Compartilhar mídia"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
               >
-                <Share2 className="h-5 w-5" />
+                <Share2 className="h-5 w-5" aria-hidden />
               </button>
               <button
                 onClick={handleDownload}
-                aria-label="Baixar"
-                className="hidden h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95 sm:flex"
+                aria-label="Baixar mídia"
+                className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70 sm:flex"
               >
-                <Download className="h-5 w-5" />
+                <Download className="h-5 w-5" aria-hidden />
               </button>
             </div>
           </motion.div>
@@ -170,39 +213,27 @@ export function MediaViewer({
 
       {/* Stage */}
       <motion.div
-        className="relative flex flex-1 items-center justify-center overflow-hidden"
-        drag={current.type === "photo" ? "x" : false}
-        dragElastic={0.2}
-        dragConstraints={{ left: 0, right: 0 }}
+        className="relative flex flex-1 items-center justify-center overflow-hidden touch-none"
+        drag={current.type === "photo" ? true : "y"}
+        dragElastic={0.18}
+        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+        dragDirectionLock
         onDragEnd={handleSwipe}
       >
-        {/* Vertical drag-to-close */}
-        <motion.div
-          className="absolute inset-0"
-          drag="y"
-          dragElastic={0.3}
-          dragConstraints={{ top: 0, bottom: 0 }}
-          onDragEnd={handleVerticalDrag}
-          aria-hidden
-        />
-
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={current.id}
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.985 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.18 }}
+            exit={{ opacity: 0, scale: 0.985 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
             className="relative flex h-full w-full items-center justify-center px-2"
             onClick={(e) => e.stopPropagation()}
           >
             {current.type === "photo" ? (
-              <PhotoStage
-                item={current}
-                onDoubleTap={() => onToggleFav(current.id)}
-              />
+              <PhotoStage item={current} onDoubleTap={() => onToggleFav(current.id)} isSlow={isSlow} />
             ) : (
-              <VideoStage item={current} />
+              <VideoStage item={current} isSlow={isSlow} />
             )}
           </motion.div>
         </AnimatePresence>
@@ -213,22 +244,22 @@ export function MediaViewer({
             e.stopPropagation();
             if (index > 0) onIndexChange(index - 1);
           }}
-          aria-label="Anterior"
+          aria-label="Mídia anterior"
           disabled={index === 0}
-          className="absolute left-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-3 text-white backdrop-blur transition-colors hover:bg-white/20 disabled:opacity-30 md:flex"
+          className="absolute left-3 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-3 text-white backdrop-blur transition-colors hover:bg-white/20 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-white/70 md:flex"
         >
-          <ChevronLeft className="h-6 w-6" />
+          <ChevronLeft className="h-6 w-6" aria-hidden />
         </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
             if (index < items.length - 1) onIndexChange(index + 1);
           }}
-          aria-label="Próximo"
+          aria-label="Próxima mídia"
           disabled={index === items.length - 1}
-          className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-3 text-white backdrop-blur transition-colors hover:bg-white/20 disabled:opacity-30 md:flex"
+          className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-3 text-white backdrop-blur transition-colors hover:bg-white/20 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-white/70 md:flex"
         >
-          <ChevronRight className="h-6 w-6" />
+          <ChevronRight className="h-6 w-6" aria-hidden />
         </button>
       </motion.div>
 
@@ -239,7 +270,7 @@ export function MediaViewer({
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 30, opacity: 0 }}
-            className="absolute inset-x-0 bottom-0 z-10 px-4 pb-safe pt-3 glass-dark"
+            className="absolute inset-x-0 bottom-0 z-20 px-4 pb-safe pt-3 glass-dark"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="mx-auto max-w-2xl text-center text-sm font-medium text-white">
@@ -260,15 +291,24 @@ export function MediaViewer({
 function PhotoStage({
   item,
   onDoubleTap,
+  isSlow,
 }: {
   item: MediaItem;
   onDoubleTap: () => void;
+  isSlow: boolean;
 }) {
   const [hi, setHi] = useState(false);
   const [zoom, setZoom] = useState(1);
   const lastTap = useRef(0);
 
-  // Progressive: low quality first, then high quality fades in
+  const highSrc = useMemo(() => (isSlow ? item.previewUrl : item.fullUrl), [item, isSlow]);
+
+  // Reset hi-res on item change
+  useEffect(() => {
+    setHi(false);
+    setZoom(1);
+  }, [item.id]);
+
   return (
     <div
       className="relative flex h-full w-full items-center justify-center overflow-hidden"
@@ -276,30 +316,44 @@ function PhotoStage({
         const now = Date.now();
         if (now - lastTap.current < 280) {
           if (zoom > 1) setZoom(1);
-          else onDoubleTap();
+          else {
+            setZoom(2);
+            window.setTimeout(() => onDoubleTap(), 0);
+          }
           lastTap.current = 0;
         } else {
           lastTap.current = now;
         }
       }}
     >
+      {/* LQIP placeholder */}
+      <img
+        src={item.lqipUrl}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 m-auto max-h-full max-w-full scale-105 object-contain blur-xl"
+        draggable={false}
+      />
       <motion.img
         src={item.previewUrl}
-        alt={item.caption ?? "Foto"}
-        className="max-h-full max-w-full object-contain"
+        alt={item.caption ?? "Foto da galeria AMBSSL"}
+        className="relative max-h-full max-w-full object-contain"
         animate={{ scale: zoom }}
         transition={{ type: "spring", stiffness: 260, damping: 28 }}
         draggable={false}
         loading="eager"
+        decoding="async"
+        fetchPriority="high"
       />
       <motion.img
-        src={item.fullUrl}
+        src={highSrc}
         alt=""
         aria-hidden
         loading="lazy"
+        decoding="async"
         onLoad={() => setHi(true)}
         className="absolute max-h-full max-w-full object-contain"
-        style={{ opacity: hi ? 1 : 0, transition: "opacity 300ms ease" }}
+        style={{ opacity: hi ? 1 : 0, transition: "opacity 350ms ease" }}
         animate={{ scale: zoom }}
         transition={{ type: "spring", stiffness: 260, damping: 28 }}
         draggable={false}
@@ -308,19 +362,22 @@ function PhotoStage({
   );
 }
 
-function VideoStage({ item }: { item: MediaItem }) {
+function VideoStage({ item, isSlow }: { item: MediaItem; isSlow: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState(false);
+  const [waiting, setWaiting] = useState(false);
 
   const togglePlay = useCallback(() => {
     const v = ref.current;
     if (!v) return;
     if (v.paused) {
-      v.play().then(() => setPlaying(true)).catch(() => setError(true));
+      v.play()
+        .then(() => setPlaying(true))
+        .catch(() => setError(true));
     } else {
       v.pause();
       setPlaying(false);
@@ -359,34 +416,49 @@ function VideoStage({ item }: { item: MediaItem }) {
         poster={item.previewUrl}
         playsInline
         muted={muted}
-        preload="metadata"
+        preload={isSlow ? "none" : "metadata"}
         onClick={togglePlay}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
+        onWaiting={() => setWaiting(true)}
+        onCanPlay={() => setWaiting(false)}
         onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onError={() => setError(true)}
         className="max-h-full max-w-full"
+        aria-label={item.caption ?? "Vídeo da galeria"}
       />
 
-      {!playing && (
+      {(!playing || waiting) && (
         <button
           type="button"
           onClick={togglePlay}
-          aria-label="Reproduzir"
-          className="absolute flex h-20 w-20 items-center justify-center rounded-full bg-white/95 text-primary shadow-elevated transition-transform active:scale-95"
+          aria-label={waiting ? "Carregando vídeo" : "Reproduzir vídeo"}
+          className="absolute flex h-20 w-20 items-center justify-center rounded-full bg-white/95 text-primary shadow-elevated transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-white"
         >
-          <Play className="h-9 w-9 fill-current" />
+          {waiting ? (
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          ) : (
+            <Play className="h-9 w-9 fill-current" aria-hidden />
+          )}
         </button>
       )}
 
       {/* Custom controls */}
       <div
-        className="absolute inset-x-0 bottom-20 z-10 mx-auto flex max-w-2xl items-center gap-3 rounded-full bg-black/55 px-4 py-2 backdrop-blur"
+        className="absolute inset-x-3 bottom-24 z-10 mx-auto flex max-w-2xl items-center gap-3 rounded-full bg-black/55 px-4 py-2 backdrop-blur"
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={togglePlay} aria-label={playing ? "Pausar" : "Reproduzir"}>
-          {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-white" />}
+        <button
+          onClick={togglePlay}
+          aria-label={playing ? "Pausar" : "Reproduzir"}
+          className="rounded-full p-1 focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          {playing ? (
+            <Pause className="h-5 w-5" aria-hidden />
+          ) : (
+            <Play className="h-5 w-5 fill-white" aria-hidden />
+          )}
         </button>
         <span className="text-xs tabular-nums text-white/80">{fmt(progress)}</span>
         <input
@@ -403,11 +475,24 @@ function VideoStage({ item }: { item: MediaItem }) {
           aria-label="Progresso do vídeo"
         />
         <span className="text-xs tabular-nums text-white/80">{fmt(duration)}</span>
-        <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Ativar som" : "Silenciar"}>
-          {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+        <button
+          onClick={() => setMuted((m) => !m)}
+          aria-label={muted ? "Ativar som" : "Silenciar"}
+          aria-pressed={!muted}
+          className="rounded-full p-1 focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          {muted ? (
+            <VolumeX className="h-5 w-5" aria-hidden />
+          ) : (
+            <Volume2 className="h-5 w-5" aria-hidden />
+          )}
         </button>
-        <button onClick={goFs} aria-label="Tela cheia" className="hidden sm:block">
-          <Maximize className="h-5 w-5" />
+        <button
+          onClick={goFs}
+          aria-label="Tela cheia"
+          className="hidden rounded-full p-1 focus-visible:ring-2 focus-visible:ring-white/70 sm:block"
+        >
+          <Maximize className="h-5 w-5" aria-hidden />
         </button>
       </div>
     </div>
