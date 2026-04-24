@@ -2,13 +2,20 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Images, Image as ImageIcon, Film, Heart, Info } from "lucide-react";
 import { motion } from "framer-motion";
 
-const items = [
-  { to: "/", label: "Todos", icon: Images, exact: true },
-  { to: "/?tab=fotos", label: "Fotos", icon: ImageIcon, match: "fotos" },
-  { to: "/?tab=videos", label: "Vídeos", icon: Film, match: "videos" },
-  { to: "/?tab=favoritos", label: "Favoritos", icon: Heart, match: "favoritos" },
-  { to: "/sobre", label: "Sobre", icon: Info, match: "/sobre" },
-] as const;
+type NavItem = {
+  label: string;
+  icon: typeof Images;
+  to: "/" | "/sobre";
+  tab?: "todos" | "fotos" | "videos" | "favoritos";
+};
+
+const items: NavItem[] = [
+  { label: "Todos", icon: Images, to: "/", tab: "todos" },
+  { label: "Fotos", icon: ImageIcon, to: "/", tab: "fotos" },
+  { label: "Vídeos", icon: Film, to: "/", tab: "videos" },
+  { label: "Favoritos", icon: Heart, to: "/", tab: "favoritos" },
+  { label: "Sobre", icon: Info, to: "/sobre" },
+];
 
 export function BottomNav({ activeTab }: { activeTab: string }) {
   const location = useLocation();
@@ -22,20 +29,14 @@ export function BottomNav({ activeTab }: { activeTab: string }) {
       <ul className="mx-auto flex max-w-3xl items-stretch justify-between px-2 pt-1.5">
         {items.map((it) => {
           const isActive = onAbout
-            ? it.match === "/sobre"
-            : it.exact
-              ? activeTab === "todos"
-              : it.match === activeTab;
+            ? it.to === "/sobre"
+            : it.to === "/" && it.tab === activeTab;
           const Icon = it.icon;
           return (
             <li key={it.label} className="flex-1">
               <Link
-                to={it.to.startsWith("/?") ? "/" : it.to}
-                search={
-                  it.to.startsWith("/?")
-                    ? { tab: it.to.split("=")[1] }
-                    : undefined
-                }
+                to={it.to}
+                search={it.to === "/" && it.tab ? { tab: it.tab } : undefined}
                 className="relative flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium"
                 aria-current={isActive ? "page" : undefined}
               >
