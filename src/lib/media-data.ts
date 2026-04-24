@@ -86,7 +86,7 @@ function buildItems(): MediaItem[] {
     const ratio = (px: number) => Math.max(1, Math.round((px * h) / w));
     const thumb = (px: number) => pic(seed, px, ratio(px));
     const srcSet = `${thumb(320)} 320w, ${thumb(480)} 480w, ${thumb(640)} 640w, ${thumb(800)} 800w`;
-    const lqip = `${pic(seed, 24, ratio(24))}.webp?blur=4`;
+    const lqip = `https://picsum.photos/seed/ambssl-${seed}/24/${ratio(24)}?blur=4`;
 
     if (isVideo) {
       const vUrl = sampleVideos[videoIdx % sampleVideos.length];
