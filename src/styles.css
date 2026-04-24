@@ -138,6 +138,9 @@
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -172,7 +175,9 @@
     -webkit-backdrop-filter: saturate(180%) blur(16px);
   }
 
-  .cv-auto { content-visibility: auto; contain-intrinsic-size: 320px; }
+  .cv-auto { content-visibility: auto; contain-intrinsic-size: auto 320px; }
+  .touch-pan-y { touch-action: pan-y; }
+  .touch-none { touch-action: none; }
 
   .shimmer {
     background: linear-gradient(

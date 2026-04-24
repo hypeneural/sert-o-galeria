@@ -36,10 +36,10 @@ export const Route = createRootRoute({
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://picsum.photos", crossOrigin: "anonymous" },
+      { rel: "dns-prefetch", href: "https://picsum.photos" },
+      { rel: "preconnect", href: "https://fastly.picsum.photos", crossOrigin: "anonymous" },
     ],
   }),
   shellComponent: RootShell,
@@ -49,7 +49,7 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>
