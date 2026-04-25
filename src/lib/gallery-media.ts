@@ -118,14 +118,14 @@ export type GalleryManifest = {
 export type GallerySponsor = {
   public_id: string;
   media_type: "image" | "video";
-  mime_type: string;
+  mime_type: string | null;
   position: number;
   duration_seconds: number | null;
   display_duration_seconds: number | null;
   playback_mode: string;
-  width: number;
-  height: number;
-  orientation: string;
+  width: number | null;
+  height: number | null;
+  orientation: string | null;
   urls: {
     asset: string;
     poster: string | null;

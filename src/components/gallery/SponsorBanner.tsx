@@ -35,8 +35,8 @@ export function SponsorBanner({ sponsors }: Props) {
         <img
           src={item.urls.asset}
           alt="Patrocinador"
-          width={item.width}
-          height={item.height}
+          {...(item.width != null && { width: item.width })}
+          {...(item.height != null && { height: item.height })}
           loading="lazy"
           decoding="async"
           className="h-auto w-full object-contain"
