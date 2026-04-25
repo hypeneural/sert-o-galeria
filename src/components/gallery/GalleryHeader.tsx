@@ -15,7 +15,7 @@ export function GalleryHeader({ onOpenFilters, manifest }: Props) {
   const logoUrl = manifest?.event.branding.logo_url;
 
   const handleShare = async () => {
-    const shareUrl = manifest?.event.links.public_gallery_share_url ?? window.location.href;
+    const shareUrl = "https://ambssl.com.br/";
     const shareData = {
       title,
       text: manifest?.event.description ?? "Fotos e vídeos da comunidade",

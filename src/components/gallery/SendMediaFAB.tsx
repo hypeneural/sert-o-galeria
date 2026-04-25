@@ -71,7 +71,7 @@ function PulseButton({ onClick }: { onClick: () => void }) {
         type="button"
         onClick={onClick}
         aria-label="Enviar fotos para o telão"
-        className="pointer-events-auto flex w-full max-w-3xl items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-highlight via-highlight to-[hsl(40_90%_50%)] px-6 py-4 text-[15px] font-bold tracking-wide text-highlight-foreground"
+        className="pointer-events-auto flex w-full max-w-3xl items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-highlight via-highlight to-[hsl(40_90%_50%)] px-6 py-4.5 font-extrabold tracking-wide text-highlight-foreground"
         animate={{
           scale: [1, 1.02, 1],
           boxShadow: [
@@ -87,8 +87,8 @@ function PulseButton({ onClick }: { onClick: () => void }) {
         }}
         whileTap={{ scale: 0.96 }}
       >
-        <Camera className="h-5 w-5" />
-        <span>Enviar Fotos para o Telão!</span>
+        <Camera className="h-6 w-6" />
+        <span className="text-[17px] leading-tight">Enviar Fotos para o Telão!</span>
       </motion.button>
     </div>
   );

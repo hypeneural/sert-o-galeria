@@ -99,8 +99,9 @@ function cacheFirst(request, cacheName) {
     if (cached) return cached;
     return fetch(request).then(function (response) {
       if (response.ok) {
+        var clone = response.clone();
         caches.open(cacheName).then(function (c) {
-          c.put(request, response.clone());
+          c.put(request, clone);
         });
       }
       return response;
@@ -112,8 +113,9 @@ function networkFirst(request, cacheName) {
   return fetch(request)
     .then(function (response) {
       if (response.ok) {
+        var clone = response.clone();
         caches.open(cacheName).then(function (cache) {
-          cache.put(request, response.clone());
+          cache.put(request, clone);
         });
       }
       return response;
@@ -121,7 +123,6 @@ function networkFirst(request, cacheName) {
     .catch(function () {
       return caches.match(request).then(function (cached) {
         if (cached) return cached;
-        // Fallback para navegação: retorna app shell
         if (request.mode === "navigate") {
           return caches.match("/");
         }
