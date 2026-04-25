@@ -2,10 +2,9 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import { cloudflare } from "@cloudflare/vite-plugin";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
   // Load VITE_* env vars
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const envDefine: Record<string, string> = {};
@@ -17,22 +16,14 @@ export default defineConfig(({ command, mode }) => {
     define: envDefine,
 
     plugins: [
+      TanStackRouterVite({ quoteStyle: "double" }),
       tailwindcss(),
       tsconfigPaths({ projects: ["./tsconfig.json"] }),
-      tanstackStart(),
       react(),
-      // Cloudflare Workers plugin — only during build
-      ...(command === "build" ? [cloudflare({ viteEnvironment: { name: "ssr" } })] : []),
     ],
 
     resolve: {
-      dedupe: [
-        "react",
-        "react-dom",
-        "@tanstack/react-router",
-        "@tanstack/react-start",
-        "@tanstack/react-query",
-      ],
+      dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-query"],
     },
 
     server: {
@@ -42,8 +33,19 @@ export default defineConfig(({ command, mode }) => {
     },
 
     build: {
-      // Output for static hosting
       outDir: "dist",
+      emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules")) {
+              if (id.includes("react-dom") || id.includes("/react/")) return "vendor";
+              if (id.includes("@tanstack")) return "router";
+              if (id.includes("framer-motion")) return "motion";
+            }
+          },
+        },
+      },
     },
   };
 });
