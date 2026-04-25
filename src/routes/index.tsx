@@ -119,7 +119,7 @@ function GalleryPage() {
   const errorMessage = apiError instanceof ApiError ? getErrorMessage(apiError) : null;
 
   return (
-    <AppShell activeTab={tab}>
+    <AppShell>
       <GalleryHeader onOpenFilters={() => setFiltersOpen(true)} manifest={manifest} />
 
       {!online && <OfflineBanner />}
@@ -141,9 +141,7 @@ function GalleryPage() {
       <section className="px-1 pt-3">
         <div className="mb-3 flex items-center justify-between px-1">
           <h2 className="text-[13px] font-medium text-muted-foreground">
-            {tab === "favoritos"
-              ? "Mídias salvas no seu dispositivo"
-              : manifest?.event.description ?? "Fotos e vídeos da comunidade"}
+            {tab === "favoritos" ? "Mídias salvas no seu dispositivo" : "Fotos e vídeos"}
           </h2>
           <span className="text-[11px] text-muted-foreground">Toque para ampliar</span>
         </div>

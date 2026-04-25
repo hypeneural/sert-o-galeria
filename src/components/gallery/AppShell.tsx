@@ -1,20 +1,19 @@
 import { Toaster } from "@/components/ui/sonner";
-import { BottomNav } from "./BottomNav";
+import { SendMediaFAB } from "./SendMediaFAB";
 import { useServiceWorker } from "@/hooks/use-service-worker";
 
 type Props = {
   children: React.ReactNode;
-  activeTab: string;
 };
 
-export function AppShell({ children, activeTab }: Props) {
+export function AppShell({ children }: Props) {
   // Register SW on first mount (production only)
   useServiceWorker();
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="mx-auto max-w-3xl px-3 pb-28 pt-2">{children}</main>
-      <BottomNav activeTab={activeTab} />
+      <main className="mx-auto max-w-3xl px-3 pb-24 pt-2">{children}</main>
+      <SendMediaFAB />
       <Toaster position="top-center" richColors />
     </div>
   );

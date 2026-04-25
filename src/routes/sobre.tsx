@@ -24,7 +24,7 @@ export const Route = createFileRoute("/sobre")({
 
 function SobrePage() {
   return (
-    <AppShell activeTab="">
+    <AppShell>
       <div className="flex flex-col items-center px-4 pt-8 text-center">
         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-primary/5 shadow-elevated">
           <img src={logo} alt="Logo AMBSSL" width={96} height={96} className="h-20 w-20 object-contain" />
