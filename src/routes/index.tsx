@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { LazyMotion, domAnimation, AnimatePresence } from "framer-motion";
 import { Suspense, lazy, useMemo, useState, startTransition } from "react";
-import { Heart, ImageOff, WifiOff, Loader2 } from "lucide-react";
+import { Heart, ImageOff, WifiOff, Loader2, AlertTriangle } from "lucide-react";
 import { z } from "zod";
 
 import { AppShell } from "@/components/gallery/AppShell";
@@ -10,10 +10,14 @@ import { MediaGrid } from "@/components/gallery/MediaGrid";
 import { FilterSheet, type FilterKey, type SortKey } from "@/components/gallery/FilterSheet";
 import { EmptyState, LoadingSkeleton } from "@/components/gallery/States";
 import { OfflineBanner } from "@/components/gallery/OfflineBanner";
+import { SponsorBanner } from "@/components/gallery/SponsorBanner";
 
 import { useGalleryFeed } from "@/hooks/use-gallery";
+import { useManifest } from "@/hooks/use-manifest";
+import { useSponsors } from "@/hooks/use-sponsors";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useOnline } from "@/hooks/use-online";
+import { ApiError } from "@/lib/api";
 
 // Lazy-load MediaViewer — not in the initial bundle
 const MediaViewer = lazy(() =>
@@ -25,26 +29,23 @@ const searchSchema = z.object({
   media: z.string().optional(),
 });
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/")(
+  {
   validateSearch: searchSchema,
-  head: () => ({
-    meta: [
-      { title: "Galeria AMBSSL — Sertão de Santa Luzia" },
-      {
-        name: "description",
-        content:
-          "Fotos e vídeos da comunidade do Sertão de Santa Luzia, Porto Belo. Galeria pública da Associação de Moradores AMBSSL.",
-      },
-      { property: "og:title", content: "Galeria AMBSSL — Sertão de Santa Luzia" },
-      {
-        property: "og:description",
-        content: "Fotos e vídeos da comunidade do Sertão de Santa Luzia.",
-      },
-      { name: "theme-color", content: "#0e2a52" },
-    ],
-  }),
   component: GalleryPage,
 });
+
+/** Mapeia tab da UI → params da API */
+function tabToApiParams(tab: FilterKey): { mediaType?: "image" | "video"; featured?: boolean } {
+  switch (tab) {
+    case "fotos":
+      return { mediaType: "image" };
+    case "videos":
+      return { mediaType: "video" };
+    default:
+      return {};
+  }
+}
 
 function GalleryPage() {
   const search = Route.useSearch();
@@ -56,15 +57,32 @@ function GalleryPage() {
   const [sort, setSort] = useState<SortKey>("recent");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Server state via TanStack Query
+  // Manifest — buscar primeiro para capabilities e branding
+  const { data: manifest, isLoading: manifestLoading, error: manifestError } = useManifest();
+
+  // Sponsors — só carrega se manifest indica enabled
+  const { data: sponsors } = useSponsors(manifest);
+
+  // Media feed com filtros da API
+  const apiParams = tabToApiParams(tab);
   const {
-    items,
-    total,
-    isLoading,
+    items: allItems,
+    isLoading: feedLoading,
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
-  } = useGalleryFeed({ tab, sort, favoriteIds: favorites });
+    error: feedError,
+  } = useGalleryFeed(apiParams);
+
+  // Filtro local de favoritos (API não tem esse conceito)
+  const items = useMemo(() => {
+    if (tab === "favoritos") {
+      return allItems.filter((i) => favorites.has(i.id));
+    }
+    return allItems;
+  }, [allItems, tab, favorites]);
+
+  const isLoading = manifestLoading || feedLoading;
 
   // Viewer state — bound to ?media=
   const viewerIndex = useMemo(() => {
@@ -96,18 +114,36 @@ function GalleryPage() {
     });
   };
 
+  // Error states
+  const apiError = manifestError ?? feedError;
+  const errorMessage = apiError instanceof ApiError ? getErrorMessage(apiError) : null;
+
   return (
     <AppShell activeTab={tab}>
-      <GalleryHeader onOpenFilters={() => setFiltersOpen(true)} totalCount={total} />
+      <GalleryHeader onOpenFilters={() => setFiltersOpen(true)} manifest={manifest} />
 
       {!online && <OfflineBanner />}
+
+      {errorMessage && (
+        <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Sponsors — abaixo do header, acima do grid */}
+      {sponsors && sponsors.length > 0 && (
+        <div className="pt-3">
+          <SponsorBanner sponsors={sponsors} />
+        </div>
+      )}
 
       <section className="px-1 pt-3">
         <div className="mb-3 flex items-center justify-between px-1">
           <h2 className="text-[13px] font-medium text-muted-foreground">
             {tab === "favoritos"
               ? "Mídias salvas no seu dispositivo"
-              : "Fotos e vídeos da comunidade"}
+              : manifest?.event.description ?? "Fotos e vídeos da comunidade"}
           </h2>
           <span className="text-[11px] text-muted-foreground">Toque para ampliar</span>
         </div>
@@ -173,6 +209,7 @@ function GalleryPage() {
                 onIndexChange={setViewerIndex}
                 isFavorite={isFav}
                 onToggleFav={toggle}
+                downloadEnabled={manifest?.capabilities.download.enabled ?? false}
               />
             </Suspense>
           )}
@@ -180,4 +217,19 @@ function GalleryPage() {
       </LazyMotion>
     </AppShell>
   );
+}
+
+function getErrorMessage(err: ApiError): string {
+  switch (err.status) {
+    case 404:
+      return "Galeria não encontrada ou desabilitada para acesso externo.";
+    case 410:
+      return "Este evento foi encerrado.";
+    case 422:
+      return "Erro ao carregar a página. Tente recarregar.";
+    case 429:
+      return `Muitas requisições. Aguarde ${err.retryAfter ?? 30}s e tente novamente.`;
+    default:
+      return `Erro ao conectar com a galeria (${err.status}).`;
+  }
 }

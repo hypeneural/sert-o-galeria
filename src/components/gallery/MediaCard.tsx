@@ -58,12 +58,20 @@ export const MediaCard = memo(function MediaCard({
   const typeLabel = item.type === "video" ? "vídeo" : "foto";
   const label = `Abrir ${typeLabel}${item.caption ? `: ${item.caption}` : ""}`;
 
-  // Use gridUrl for grid display; thumbUrl on save-data mode
-  const imgSrc = saveData ? item.thumbUrl : item.gridUrl;
-  // srcSet for responsive loading
+  // Video no grid: usar poster, não thumbnail
+  const gridSrc =
+    item.type === "video"
+      ? item.videoPosterUrl ?? item.thumbUrl
+      : item.gridUrl;
+
+  const imgSrc = saveData ? item.thumbUrl : gridSrc;
+
+  // Usar srcSet/sizes da API quando disponível, senão construir manualmente
   const srcSet = saveData
     ? undefined
-    : `${item.thumbUrl} 360w, ${item.gridUrl} 640w`;
+    : item.srcSet ?? `${item.thumbUrl} 360w, ${item.gridUrl} 640w`;
+  const imgSizes =
+    item.sizes ?? "(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 48vw";
 
   return (
     <div
@@ -89,7 +97,7 @@ export const MediaCard = memo(function MediaCard({
           <img
             src={imgSrc}
             srcSet={srcSet}
-            sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 48vw"
+            sizes={imgSizes}
             alt={item.caption ?? "Mídia da comunidade AMBSSL"}
             loading={priority ? "eager" : "lazy"}
             decoding="async"

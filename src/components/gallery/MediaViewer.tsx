@@ -24,6 +24,7 @@ type Props = {
   onIndexChange: (i: number) => void;
   isFavorite: (id: string) => boolean;
   onToggleFav: (id: string) => void;
+  downloadEnabled?: boolean;
 };
 
 export function MediaViewer({
@@ -33,6 +34,7 @@ export function MediaViewer({
   onIndexChange,
   isFavorite,
   onToggleFav,
+  downloadEnabled = false,
 }: Props) {
   const current = items[index];
   const [showChrome, setShowChrome] = useState(true);
@@ -202,13 +204,15 @@ export function MediaViewer({
               >
                 <Share2 className="h-5 w-5" aria-hidden />
               </button>
-              <button
-                onClick={handleDownload}
-                aria-label="Baixar mídia"
-                className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70 sm:flex"
-              >
-                <Download className="h-5 w-5" aria-hidden />
-              </button>
+              {downloadEnabled && (
+                <button
+                  onClick={handleDownload}
+                  aria-label="Baixar mídia"
+                  className="hidden h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-colors hover:bg-white/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70 sm:flex"
+                >
+                  <Download className="h-5 w-5" aria-hidden />
+                </button>
+              )}
             </div>
           </motion.div>
         )}
