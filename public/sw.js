@@ -1,80 +1,89 @@
-/// <reference lib="webworker" />
 // ---------------------------------------------------------------------------
 // Service Worker — Galeria AMBSSL
-// Estratégias de cache por camada para performance mobile.
+// Cache por camada para performance mobile.
 // ---------------------------------------------------------------------------
 
-declare const self: ServiceWorkerGlobalScope;
+var CACHE_NAME = "ambssl-gallery-v2";
+var APP_SHELL_CACHE = "ambssl-shell-v2";
+var MEDIA_CACHE = "ambssl-media-v2";
 
-const CACHE_NAME = "ambssl-gallery-v1";
-const APP_SHELL_CACHE = "ambssl-shell-v1";
-const MEDIA_CACHE = "ambssl-media-v1";
-
-// Assets that form the app shell — cached on install
-const APP_SHELL_URLS = ["/", "/manifest.webmanifest", "/favicon.svg"];
+var APP_SHELL_URLS = ["/", "/manifest.webmanifest", "/favicon.svg"];
 
 // ---------------------------------------------------------------------------
 // Install — pre-cache app shell
 // ---------------------------------------------------------------------------
-self.addEventListener("install", (event) => {
+self.addEventListener("install", function (event) {
   event.waitUntil(
     caches
       .open(APP_SHELL_CACHE)
-      .then((cache) => cache.addAll(APP_SHELL_URLS))
-      .then(() => self.skipWaiting()),
+      .then(function (cache) {
+        return cache.addAll(APP_SHELL_URLS);
+      })
+      .then(function () {
+        return self.skipWaiting();
+      })
   );
 });
 
 // ---------------------------------------------------------------------------
 // Activate — clean old caches
 // ---------------------------------------------------------------------------
-self.addEventListener("activate", (event) => {
-  const validCaches = new Set([CACHE_NAME, APP_SHELL_CACHE, MEDIA_CACHE]);
+self.addEventListener("activate", function (event) {
+  var validCaches = [CACHE_NAME, APP_SHELL_CACHE, MEDIA_CACHE];
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => !validCaches.has(k)).map((k) => caches.delete(k))),
-      )
-      .then(() => self.clients.claim()),
+      .then(function (keys) {
+        return Promise.all(
+          keys
+            .filter(function (k) {
+              return validCaches.indexOf(k) === -1;
+            })
+            .map(function (k) {
+              return caches.delete(k);
+            })
+        );
+      })
+      .then(function () {
+        return self.clients.claim();
+      })
   );
 });
 
 // ---------------------------------------------------------------------------
 // Fetch — strategy per resource type
 // ---------------------------------------------------------------------------
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
+self.addEventListener("fetch", function (event) {
+  var request = event.request;
+  var url = new URL(request.url);
 
-  // Skip non-GET and cross-origin requests (except media CDN)
   if (request.method !== "GET") return;
 
-  // --- JS/CSS with hash → CacheFirst (immutable) ---
+  // JS/CSS with hash → CacheFirst (immutable)
   if (isHashedAsset(url)) {
     event.respondWith(cacheFirst(request, CACHE_NAME));
     return;
   }
 
-  // --- API calls → NetworkFirst with cache fallback ---
-  if (url.pathname.startsWith("/media/") || url.pathname.startsWith("/api/")) {
+  // API calls → NetworkFirst
+  if (url.pathname.indexOf("/media/") === 0 || url.pathname.indexOf("/api/") === 0) {
     event.respondWith(networkFirst(request, CACHE_NAME));
     return;
   }
 
-  // --- Images (thumbnails, posters) → CacheFirst with expiration ---
+  // Images → CacheFirst with limit
   if (isImageRequest(request, url)) {
     event.respondWith(cacheFirstWithLimit(request, MEDIA_CACHE, 200));
     return;
   }
 
-  // --- Navigation/HTML → NetworkFirst ---
+  // Navigation → NetworkFirst with shell fallback
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, APP_SHELL_CACHE));
     return;
   }
 
-  // --- Default → NetworkFirst ---
+  // Default
   event.respondWith(networkFirst(request, CACHE_NAME));
 });
 
@@ -82,80 +91,79 @@ self.addEventListener("fetch", (event) => {
 // Strategies
 // ---------------------------------------------------------------------------
 
-/** CacheFirst — try cache, fallback to network */
-async function cacheFirst(request: Request, cacheName: string): Promise<Response> {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-  const response = await fetch(request);
-  if (response.ok) {
-    const cache = await caches.open(cacheName);
-    cache.put(request, response.clone());
-  }
-  return response;
-}
-
-/** NetworkFirst — try network, fallback to cache */
-async function networkFirst(request: Request, cacheName: string): Promise<Response> {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
+function cacheFirst(request, cacheName) {
+  return caches.match(request).then(function (cached) {
     if (cached) return cached;
-    // Fallback for navigation — return app shell
-    if (request.mode === "navigate") {
-      const shell = await caches.match("/");
-      if (shell) return shell;
-    }
-    return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
-  }
+    return fetch(request).then(function (response) {
+      if (response.ok) {
+        var cache = caches.open(cacheName);
+        cache.then(function (c) {
+          c.put(request, response.clone());
+        });
+      }
+      return response;
+    });
+  });
 }
 
-/** CacheFirst with entry limit — evicts oldest when over max */
-async function cacheFirstWithLimit(
-  request: Request,
-  cacheName: string,
-  maxEntries: number,
-): Promise<Response> {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-
-  const response = await fetch(request);
-  if (response.ok) {
-    cache.put(request, response.clone());
-    // Evict oldest entries if over limit
-    limitCacheSize(cacheName, maxEntries);
-  }
-  return response;
+function networkFirst(request, cacheName) {
+  return fetch(request)
+    .then(function (response) {
+      if (response.ok) {
+        caches.open(cacheName).then(function (cache) {
+          cache.put(request, response.clone());
+        });
+      }
+      return response;
+    })
+    .catch(function () {
+      return caches.match(request).then(function (cached) {
+        if (cached) return cached;
+        if (request.mode === "navigate") {
+          return caches.match("/");
+        }
+        return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
+      });
+    });
 }
 
-/** Trim cache to maxEntries by deleting oldest */
-async function limitCacheSize(cacheName: string, maxEntries: number) {
-  const cache = await caches.open(cacheName);
-  const keys = await cache.keys();
-  if (keys.length > maxEntries) {
-    // Delete oldest entries (first in list)
-    const toDelete = keys.slice(0, keys.length - maxEntries);
-    await Promise.all(toDelete.map((k) => cache.delete(k)));
-  }
+function cacheFirstWithLimit(request, cacheName, maxEntries) {
+  return caches.open(cacheName).then(function (cache) {
+    return cache.match(request).then(function (cached) {
+      if (cached) return cached;
+      return fetch(request).then(function (response) {
+        if (response.ok) {
+          cache.put(request, response.clone());
+          limitCacheSize(cacheName, maxEntries);
+        }
+        return response;
+      });
+    });
+  });
+}
+
+function limitCacheSize(cacheName, maxEntries) {
+  caches.open(cacheName).then(function (cache) {
+    cache.keys().then(function (keys) {
+      if (keys.length > maxEntries) {
+        cache.delete(keys[0]).then(function () {
+          limitCacheSize(cacheName, maxEntries);
+        });
+      }
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function isHashedAsset(url: URL): boolean {
-  // Vite hashed assets: /assets/chunk-abc123.js
+function isHashedAsset(url) {
   return /\/assets\/.*\.[a-f0-9]{8,}\.(js|css|woff2?)$/i.test(url.pathname);
 }
 
-function isImageRequest(request: Request, url: URL): boolean {
-  const accept = request.headers.get("accept") ?? "";
-  if (accept.includes("image/")) return true;
+function isImageRequest(request, url) {
+  var accept = request.headers.get("accept") || "";
+  if (accept.indexOf("image/") !== -1) return true;
   return /\.(jpe?g|png|gif|webp|avif|svg)(\?.*)?$/i.test(url.pathname);
 }
