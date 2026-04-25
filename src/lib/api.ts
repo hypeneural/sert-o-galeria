@@ -29,35 +29,58 @@ function hasRealApi(): boolean {
 class ApiError extends Error {
   status: number;
   retryAfter?: number;
+  retryable: boolean;
 
   constructor(status: number, message: string, retryAfter?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.retryAfter = retryAfter;
+    this.retryable = true; // default: retryable
   }
 }
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-    signal,
-  });
+  let res: Response;
+
+  try {
+    res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal,
+    });
+  } catch (err) {
+    // CORS bloqueado ou sem rede — fetch() lança TypeError
+    if (err instanceof TypeError) {
+      const corsError = new ApiError(
+        0,
+        "Não foi possível conectar à API. Verifique se o domínio está liberado no CORS.",
+      );
+      corsError.retryable = false;
+      throw corsError;
+    }
+    throw err;
+  }
 
   if (res.status === 304) {
     throw new ApiError(304, "Conteúdo não modificado");
   }
 
   if (res.status === 404) {
-    throw new ApiError(404, "Galeria não encontrada ou desabilitada");
+    const e = new ApiError(404, "Galeria não encontrada ou desabilitada");
+    e.retryable = false;
+    throw e;
   }
 
   if (res.status === 410) {
-    throw new ApiError(410, "Evento encerrado");
+    const e = new ApiError(410, "Evento encerrado");
+    e.retryable = false;
+    throw e;
   }
 
   if (res.status === 422) {
-    throw new ApiError(422, "Parâmetro inválido (cursor expirado?)");
+    const e = new ApiError(422, "Parâmetro inválido (cursor expirado?)");
+    e.retryable = false;
+    throw e;
   }
 
   if (res.status === 429) {

@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { fetchGalleryFeed } from "@/lib/api";
+import { fetchGalleryFeed, ApiError } from "@/lib/api";
 import type { GalleryMedia } from "@/lib/gallery-media";
 
 type FeedOptions = {
@@ -25,6 +25,10 @@ export function useGalleryFeed({ mediaType, featured }: FeedOptions = {}) {
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
     maxPages: 10,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && !error.retryable) return false;
+      return failureCount < 2;
+    },
   });
 
   const items: GalleryMedia[] = useMemo(

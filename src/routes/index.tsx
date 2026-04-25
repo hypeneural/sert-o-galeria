@@ -221,6 +221,8 @@ function GalleryPage() {
 
 function getErrorMessage(err: ApiError): string {
   switch (err.status) {
+    case 0:
+      return "Não foi possível conectar à API. O domínio pode não estar liberado no CORS.";
     case 404:
       return "Galeria não encontrada ou desabilitada para acesso externo.";
     case 410:
