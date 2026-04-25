@@ -1,17 +1,24 @@
 import { Heart, Play, Star } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { MediaItem } from "@/lib/media-data";
+import { memo, useEffect, useRef, useState } from "react";
+import type { GalleryMedia } from "@/lib/gallery-media";
 import { useNetwork } from "@/hooks/use-network";
+import { useDoubleTap } from "@/hooks/use-double-tap";
 
 type Props = {
-  item: MediaItem;
+  item: GalleryMedia;
   isFavorite: boolean;
   onOpen: () => void;
   onToggleFav: () => void;
   priority?: boolean;
 };
 
-export function MediaCard({ item, isFavorite, onOpen, onToggleFav, priority }: Props) {
+export const MediaCard = memo(function MediaCard({
+  item,
+  isFavorite,
+  onOpen,
+  onToggleFav,
+  priority,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(!!priority);
   const [loaded, setLoaded] = useState(false);
@@ -42,20 +49,21 @@ export function MediaCard({ item, isFavorite, onOpen, onToggleFav, priority }: P
     return () => io.disconnect();
   }, [priority, isSlow]);
 
-  const lastTap = useRef(0);
-  const handleClick = () => {
-    const now = Date.now();
-    if (now - lastTap.current < 280) {
-      onToggleFav();
-      lastTap.current = 0;
-      return;
-    }
-    lastTap.current = now;
-    onOpen();
-  };
+  // Non-blocking double-tap handler
+  const { onClick: handleClick } = useDoubleTap({
+    onSingleTap: onOpen,
+    onDoubleTap: onToggleFav,
+  });
 
   const typeLabel = item.type === "video" ? "vídeo" : "foto";
   const label = `Abrir ${typeLabel}${item.caption ? `: ${item.caption}` : ""}`;
+
+  // Use gridUrl for grid display; thumbUrl on save-data mode
+  const imgSrc = saveData ? item.thumbUrl : item.gridUrl;
+  // srcSet for responsive loading
+  const srcSet = saveData
+    ? undefined
+    : `${item.thumbUrl} 360w, ${item.gridUrl} 640w`;
 
   return (
     <div
@@ -68,26 +76,26 @@ export function MediaCard({ item, isFavorite, onOpen, onToggleFav, priority }: P
         onClick={handleClick}
         className="group relative block h-full w-full overflow-hidden rounded-2xl bg-muted shadow-card outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         aria-label={label}
+        style={
+          item.dominantColor
+            ? { backgroundColor: item.dominantColor }
+            : undefined
+        }
       >
-        {/* LQIP blur backdrop */}
-        <img
-          src={item.lqipUrl}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
-          draggable={false}
-        />
+        {/* Dominant color is set via style above — instant placeholder */}
         {!loaded && <div className="absolute inset-0 shimmer opacity-60" aria-hidden />}
 
         {visible && (
           <img
-            src={item.thumbnailUrl}
-            srcSet={saveData ? undefined : item.thumbnailSrcSet}
+            src={imgSrc}
+            srcSet={srcSet}
             sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 48vw"
             alt={item.caption ?? "Mídia da comunidade AMBSSL"}
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={priority ? "high" : "auto"}
+            width={item.width}
+            height={item.height}
             onLoad={() => setLoaded(true)}
             className={`relative h-full w-full object-cover transition-opacity duration-500 ${
               loaded ? "opacity-100" : "opacity-0"
@@ -115,7 +123,7 @@ export function MediaCard({ item, isFavorite, onOpen, onToggleFav, priority }: P
           )}
         </div>
 
-        {/* Bottom gradient + fav */}
+        {/* Bottom gradient */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
 
         {/* Big play overlay for videos */}
@@ -146,4 +154,4 @@ export function MediaCard({ item, isFavorite, onOpen, onToggleFav, priority }: P
       </button>
     </div>
   );
-}
+});

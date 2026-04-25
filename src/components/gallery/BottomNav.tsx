@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Images, Image as ImageIcon, Film, Heart, Info } from "lucide-react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 type NavItem = {
   label: string;
@@ -46,7 +46,7 @@ export function BottomNav({ activeTab }: { activeTab: string }) {
                   }`}
                 >
                   {isActive && (
-                    <motion.span
+                    <m.span
                       layoutId="bnav-pill"
                       className="absolute inset-0 rounded-full bg-highlight/40"
                       transition={{ type: "spring", stiffness: 500, damping: 35 }}

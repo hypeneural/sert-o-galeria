@@ -1,20 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AnimatePresence } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { Heart, ImageOff, WifiOff } from "lucide-react";
+import { LazyMotion, domAnimation, AnimatePresence } from "framer-motion";
+import { Suspense, lazy, useMemo, useState, startTransition } from "react";
+import { Heart, ImageOff, WifiOff, Loader2 } from "lucide-react";
 import { z } from "zod";
 
 import { AppShell } from "@/components/gallery/AppShell";
 import { GalleryHeader } from "@/components/gallery/GalleryHeader";
 import { MediaGrid } from "@/components/gallery/MediaGrid";
-import { MediaViewer } from "@/components/gallery/MediaViewer";
 import { FilterSheet, type FilterKey, type SortKey } from "@/components/gallery/FilterSheet";
 import { EmptyState, LoadingSkeleton } from "@/components/gallery/States";
 import { OfflineBanner } from "@/components/gallery/OfflineBanner";
 
-import { MEDIA_ITEMS, type MediaItem } from "@/lib/media-data";
+import { useGalleryFeed } from "@/hooks/use-gallery";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useOnline } from "@/hooks/use-online";
+
+// Lazy-load MediaViewer — not in the initial bundle
+const MediaViewer = lazy(() =>
+  import("@/components/gallery/MediaViewer").then((m) => ({ default: m.MediaViewer })),
+);
 
 const searchSchema = z.object({
   tab: z.enum(["todos", "fotos", "videos", "favoritos"]).optional(),
@@ -51,29 +55,16 @@ function GalleryPage() {
 
   const [sort, setSort] = useState<SortKey>("recent");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 250);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Filter + sort items
-  const items: MediaItem[] = useMemo(() => {
-    let list = MEDIA_ITEMS;
-    if (tab === "fotos") list = list.filter((i) => i.type === "photo");
-    else if (tab === "videos") list = list.filter((i) => i.type === "video");
-    else if (tab === "favoritos") list = list.filter((i) => favorites.has(i.id));
-
-    if (sort === "featured") {
-      list = [...list].sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured));
-    } else {
-      list = [...list].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-    }
-    return list;
-  }, [tab, sort, favorites]);
+  // Server state via TanStack Query
+  const {
+    items,
+    total,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useGalleryFeed({ tab, sort, favoriteIds: favorites });
 
   // Viewer state — bound to ?media=
   const viewerIndex = useMemo(() => {
@@ -93,9 +84,21 @@ function GalleryPage() {
     navigate({ to: "/", search: { ...search, media: id } });
   };
 
+  const handleSetFilter = (f: FilterKey) => {
+    startTransition(() => {
+      navigate({ to: "/", search: { tab: f } });
+    });
+  };
+
+  const handleSetSort = (s: SortKey) => {
+    startTransition(() => {
+      setSort(s);
+    });
+  };
+
   return (
     <AppShell activeTab={tab}>
-      <GalleryHeader onOpenFilters={() => setFiltersOpen(true)} totalCount={items.length} />
+      <GalleryHeader onOpenFilters={() => setFiltersOpen(true)} totalCount={total} />
 
       {!online && <OfflineBanner />}
 
@@ -109,7 +112,7 @@ function GalleryPage() {
           <span className="text-[11px] text-muted-foreground">Toque para ampliar</span>
         </div>
 
-        {!mounted ? (
+        {isLoading ? (
           <LoadingSkeleton />
         ) : items.length === 0 ? (
           tab === "favoritos" ? (
@@ -137,6 +140,9 @@ function GalleryPage() {
             favorites={favorites}
             onOpen={openViewer}
             onToggleFav={toggle}
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={() => fetchNextPage()}
           />
         )}
       </section>
@@ -145,23 +151,33 @@ function GalleryPage() {
         open={filtersOpen}
         onOpenChange={setFiltersOpen}
         filter={tab}
-        setFilter={(f) => navigate({ to: "/", search: { tab: f } })}
+        setFilter={handleSetFilter}
         sort={sort}
-        setSort={setSort}
+        setSort={handleSetSort}
       />
 
-      <AnimatePresence>
-        {viewerIndex >= 0 && (
-          <MediaViewer
-            items={items}
-            index={viewerIndex}
-            onClose={closeViewer}
-            onIndexChange={setViewerIndex}
-            isFavorite={isFav}
-            onToggleFav={toggle}
-          />
-        )}
-      </AnimatePresence>
+      <LazyMotion features={domAnimation}>
+        <AnimatePresence>
+          {viewerIndex >= 0 && (
+            <Suspense
+              fallback={
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--viewer-bg)]">
+                  <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+                </div>
+              }
+            >
+              <MediaViewer
+                items={items}
+                index={viewerIndex}
+                onClose={closeViewer}
+                onIndexChange={setViewerIndex}
+                isFavorite={isFav}
+                onToggleFav={toggle}
+              />
+            </Suspense>
+          )}
+        </AnimatePresence>
+      </LazyMotion>
     </AppShell>
   );
 }

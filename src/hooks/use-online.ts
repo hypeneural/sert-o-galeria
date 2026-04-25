@@ -16,21 +16,3 @@ export function useOnline() {
 
   return online;
 }
-
-export function useSlowConnection() {
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    const conn = (navigator as unknown as {
-      connection?: { effectiveType?: string; saveData?: boolean; addEventListener?: (e: string, f: () => void) => void; removeEventListener?: (e: string, f: () => void) => void };
-    }).connection;
-    if (!conn) return;
-    const check = () => {
-      const et = conn.effectiveType;
-      setSlow(conn.saveData === true || et === "slow-2g" || et === "2g" || et === "3g");
-    };
-    check();
-    conn.addEventListener?.("change", check);
-    return () => conn.removeEventListener?.("change", check);
-  }, []);
-  return slow;
-}

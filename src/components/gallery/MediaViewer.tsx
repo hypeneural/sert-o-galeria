@@ -13,12 +13,12 @@ import {
   VolumeX,
   Maximize,
 } from "lucide-react";
-import type { MediaItem } from "@/lib/media-data";
+import type { GalleryMedia } from "@/lib/gallery-media";
 import { toast } from "sonner";
 import { useNetwork } from "@/hooks/use-network";
 
 type Props = {
-  items: MediaItem[];
+  items: GalleryMedia[];
   index: number;
   onClose: () => void;
   onIndexChange: (i: number) => void;
@@ -75,24 +75,24 @@ export function MediaViewer({
     return () => window.clearTimeout(t);
   }, [showChrome, index]);
 
-  // Preload neighbors (skipped on slow networks)
+  // Preload neighbors using Image() — avoids <link preload> warning
   useEffect(() => {
     if (isSlow) return;
-    const neighbors: MediaItem[] = [];
+    const neighbors: GalleryMedia[] = [];
     if (items[index + 1]) neighbors.push(items[index + 1]);
     if (items[index - 1]) neighbors.push(items[index - 1]);
-    const links: HTMLLinkElement[] = neighbors
+    const imgs = neighbors
       .filter((n) => n.type === "photo")
       .map((n) => {
-        const link = document.createElement("link");
-        link.rel = "preload";
-        link.as = "image";
-        link.href = n.previewUrl;
-        document.head.appendChild(link);
-        return link;
+        const img = new Image();
+        img.src = n.previewUrl;
+        return img;
       });
     return () => {
-      links.forEach((l) => l.remove());
+      // Cancel loading by clearing src
+      imgs.forEach((img) => {
+        img.src = "";
+      });
     };
   }, [index, items, isSlow]);
 
@@ -118,7 +118,10 @@ export function MediaViewer({
   };
 
   const handleDownload = () => {
-    const url = current.type === "video" ? (current.videoUrl ?? current.fullUrl) : current.fullUrl;
+    const url =
+      current.type === "video"
+        ? (current.videoPreviewUrl ?? current.originalUrl ?? current.previewUrl)
+        : (current.originalUrl ?? current.previewUrl);
     const a = document.createElement("a");
     a.href = url;
     a.download = `ambssl-${current.id}`;
@@ -293,7 +296,7 @@ function PhotoStage({
   onDoubleTap,
   isSlow,
 }: {
-  item: MediaItem;
+  item: GalleryMedia;
   onDoubleTap: () => void;
   isSlow: boolean;
 }) {
@@ -301,7 +304,10 @@ function PhotoStage({
   const [zoom, setZoom] = useState(1);
   const lastTap = useRef(0);
 
-  const highSrc = useMemo(() => (isSlow ? item.previewUrl : item.fullUrl), [item, isSlow]);
+  const highSrc = useMemo(
+    () => (isSlow ? item.previewUrl : (item.originalUrl ?? item.previewUrl)),
+    [item, isSlow],
+  );
 
   // Reset hi-res on item change
   useEffect(() => {
@@ -312,6 +318,7 @@ function PhotoStage({
   return (
     <div
       className="relative flex h-full w-full items-center justify-center overflow-hidden"
+      style={item.dominantColor ? { backgroundColor: item.dominantColor } : undefined}
       onClick={() => {
         const now = Date.now();
         if (now - lastTap.current < 280) {
@@ -326,14 +333,7 @@ function PhotoStage({
         }
       }}
     >
-      {/* LQIP placeholder */}
-      <img
-        src={item.lqipUrl}
-        alt=""
-        aria-hidden
-        className="absolute inset-0 m-auto max-h-full max-w-full scale-105 object-contain blur-xl"
-        draggable={false}
-      />
+      {/* Preview image */}
       <motion.img
         src={item.previewUrl}
         alt={item.caption ?? "Foto da galeria AMBSSL"}
@@ -345,6 +345,7 @@ function PhotoStage({
         decoding="async"
         fetchPriority="high"
       />
+      {/* Hi-res overlay (loads after preview) */}
       <motion.img
         src={highSrc}
         alt=""
@@ -362,7 +363,7 @@ function PhotoStage({
   );
 }
 
-function VideoStage({ item, isSlow }: { item: MediaItem; isSlow: boolean }) {
+function VideoStage({ item, isSlow }: { item: GalleryMedia; isSlow: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -397,6 +398,10 @@ function VideoStage({ item, isSlow }: { item: MediaItem; isSlow: boolean }) {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
+  // Use real poster if available, else previewUrl
+  const posterSrc = item.videoPosterUrl ?? item.previewUrl;
+  const videoSrc = item.videoPreviewUrl;
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 text-center text-white/80">
@@ -412,8 +417,8 @@ function VideoStage({ item, isSlow }: { item: MediaItem; isSlow: boolean }) {
     <div className="relative flex h-full w-full items-center justify-center">
       <video
         ref={ref}
-        src={item.videoUrl}
-        poster={item.previewUrl}
+        src={videoSrc}
+        poster={posterSrc}
         playsInline
         muted={muted}
         preload={isSlow ? "none" : "metadata"}

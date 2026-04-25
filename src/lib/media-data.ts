@@ -1,20 +1,7 @@
-export type MediaItem = {
-  id: string;
-  type: "photo" | "video";
-  thumbnailUrl: string;
-  thumbnailSrcSet: string;
-  previewUrl: string;
-  fullUrl: string;
-  lqipUrl: string; // tiny blurred placeholder
-  videoUrl?: string;
-  width: number;
-  height: number;
-  aspectRatio: number;
-  caption?: string;
-  createdAt: string; // ISO
-  isFeatured?: boolean;
-  authorName?: string;
-};
+import type { GalleryMedia } from "./gallery-media";
+
+// Re-export the type for convenience
+export type { GalleryMedia };
 
 // Picsum provides reliable placeholder images. Specifying a seed keeps URLs stable.
 const pic = (seed: string, w: number, h: number) =>
@@ -50,6 +37,14 @@ const captions = [
 
 const authors = ["AMBSSL", "Maria Silva", "João Pedro", "Comunidade", "Voluntários"];
 
+// Dominant colors para placeholder CSS instantâneo (paleta terra/natureza)
+const dominantColors = [
+  "#3a5a40", "#588157", "#a3b18a", "#344e41", "#6b705c",
+  "#dda15e", "#bc6c25", "#606c38", "#283618", "#fefae0",
+  "#d4a373", "#ccd5ae", "#e9edc9", "#faedcd", "#b7b7a4",
+  "#87986a",
+];
+
 const dimsLandscape = [
   [1600, 1067],
   [1600, 900],
@@ -68,8 +63,8 @@ function pickDims(i: number): [number, number] {
   return [w, h];
 }
 
-function buildItems(): MediaItem[] {
-  const items: MediaItem[] = [];
+function buildItems(): GalleryMedia[] {
+  const items: GalleryMedia[] = [];
   const total = 44;
   let videoIdx = 0;
   const startDate = new Date("2025-04-20T12:00:00Z").getTime();
@@ -82,52 +77,46 @@ function buildItems(): MediaItem[] {
     const caption = captions[i % captions.length];
     const author = authors[i % authors.length];
     const isFeatured = i % 7 === 0;
+    const color = dominantColors[i % dominantColors.length];
 
     const ratio = (px: number) => Math.max(1, Math.round((px * h) / w));
     const thumb = (px: number) => pic(seed, px, ratio(px));
-    const srcSet = `${thumb(320)} 320w, ${thumb(480)} 480w, ${thumb(640)} 640w, ${thumb(800)} 800w`;
-    const lqip = `https://picsum.photos/seed/ambssl-${seed}/24/${ratio(24)}?blur=4`;
+
+    const base: Omit<GalleryMedia, "type" | "videoPosterUrl" | "videoPreviewUrl" | "hlsUrl" | "duration"> = {
+      id: `m-${i + 1}`,
+      width: w,
+      height: h,
+      aspectRatio: w / h,
+      thumbUrl: thumb(360),
+      gridUrl: thumb(640),
+      previewUrl: thumb(1080),
+      originalUrl: thumb(1800),
+      dominantColor: color,
+      caption,
+      createdAt,
+      isFeatured,
+      authorName: author,
+    };
 
     if (isVideo) {
       const vUrl = sampleVideos[videoIdx % sampleVideos.length];
       videoIdx++;
       items.push({
-        id: `m-${i + 1}`,
+        ...base,
         type: "video",
-        thumbnailUrl: thumb(480),
-        thumbnailSrcSet: srcSet,
-        previewUrl: thumb(900),
-        fullUrl: thumb(1600),
-        lqipUrl: lqip,
-        videoUrl: vUrl,
-        width: w,
-        height: h,
-        aspectRatio: w / h,
-        caption,
-        createdAt,
-        isFeatured,
-        authorName: author,
+        videoPosterUrl: thumb(720),
+        videoPreviewUrl: vUrl,
+        hlsUrl: undefined, // real HLS will come from CDN
+        duration: 30 + (i * 7) % 180,
       });
     } else {
       items.push({
-        id: `m-${i + 1}`,
+        ...base,
         type: "photo",
-        thumbnailUrl: thumb(480),
-        thumbnailSrcSet: srcSet,
-        previewUrl: thumb(1000),
-        fullUrl: thumb(1800),
-        lqipUrl: lqip,
-        width: w,
-        height: h,
-        aspectRatio: w / h,
-        caption,
-        createdAt,
-        isFeatured,
-        authorName: author,
       });
     }
   }
   return items;
 }
 
-export const MEDIA_ITEMS: MediaItem[] = buildItems();
+export const MOCK_MEDIA: GalleryMedia[] = buildItems();

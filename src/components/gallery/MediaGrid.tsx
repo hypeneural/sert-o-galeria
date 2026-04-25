@@ -1,34 +1,38 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Masonry } from "react-plock";
-import type { MediaItem } from "@/lib/media-data";
+import type { GalleryMedia } from "@/lib/gallery-media";
 import { MediaCard } from "./MediaCard";
 
 type Props = {
-  items: MediaItem[];
+  items: GalleryMedia[];
   favorites: Set<string>;
   onOpen: (id: string) => void;
   onToggleFav: (id: string) => void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  onLoadMore: () => void;
 };
 
-const PAGE_SIZE = 14;
-
-export function MediaGrid({ items, favorites, onOpen, onToggleFav }: Props) {
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+export function MediaGrid({
+  items,
+  favorites,
+  onOpen,
+  onToggleFav,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
+}: Props) {
   const sentinel = useRef<HTMLDivElement>(null);
 
-  // Reset on items change (filter changes)
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [items]);
-
+  // Infinite scroll — trigger fetchNextPage when sentinel is visible
   useEffect(() => {
     const el = sentinel.current;
-    if (!el) return;
+    if (!el || !hasNextPage) return;
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting) {
-            setVisibleCount((c) => Math.min(c + PAGE_SIZE, items.length));
+          if (e.isIntersecting && !isFetchingNextPage) {
+            onLoadMore();
           }
         }
       },
@@ -36,14 +40,12 @@ export function MediaGrid({ items, favorites, onOpen, onToggleFav }: Props) {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [items.length]);
-
-  const visible = useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
+  }, [hasNextPage, isFetchingNextPage, onLoadMore]);
 
   return (
     <div>
       <Masonry
-        items={visible}
+        items={items}
         config={{
           columns: [2, 3, 4],
           gap: [8, 12, 14],
@@ -62,7 +64,7 @@ export function MediaGrid({ items, favorites, onOpen, onToggleFav }: Props) {
         )}
       />
 
-      {visibleCount < items.length && (
+      {hasNextPage && (
         <div ref={sentinel} className="flex items-center justify-center py-10">
           <div
             role="status"
