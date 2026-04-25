@@ -14,7 +14,7 @@ type Options = {
  */
 export function useDoubleTap({ threshold = 280, onSingleTap, onDoubleTap }: Options) {
   const lastTap = useRef(0);
-  const singleTimer = useRef<ReturnType<typeof setTimeout>>();
+  const singleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const onClick = useCallback(() => {
     const now = Date.now();
