@@ -162,7 +162,8 @@ export async function fetchGalleryFeed(
   url.searchParams.set("limit", String(params.limit ?? PAGE_SIZE));
   if (params.cursor) url.searchParams.set("cursor", params.cursor);
   if (params.mediaType) url.searchParams.set("media_type", params.mediaType);
-  if (typeof params.featured === "boolean") url.searchParams.set("featured", String(params.featured));
+  if (typeof params.featured === "boolean")
+    url.searchParams.set("featured", String(params.featured));
 
   const res = await fetchJson<ApiMediaFeedResponse>(url.toString(), signal);
 
@@ -170,6 +171,7 @@ export async function fetchGalleryFeed(
     data: res.media.map(adaptMediaItem),
     nextCursor: res.pagination.next_cursor,
     hasMore: res.pagination.has_more,
+    mediaStartIndex: res.pagination.media_start_index ?? 0,
   };
 }
 
@@ -213,6 +215,7 @@ function fetchFromMock(params: FeedParams): Promise<GalleryPage> {
           data: page,
           nextCursor: hasMore ? String(nextIndex) : null,
           hasMore,
+          mediaStartIndex: startIndex,
         }),
       delay,
     ),

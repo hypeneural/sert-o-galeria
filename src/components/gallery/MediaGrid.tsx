@@ -1,10 +1,15 @@
 import { useEffect, useRef } from "react";
 import { Masonry } from "react-plock";
-import type { GalleryMedia } from "@/lib/gallery-media";
+import type { ComposedItem } from "@/lib/compose-gallery";
+import { composedItemId } from "@/lib/compose-gallery";
+import type { SponsorAnalyticsConfig } from "@/lib/sponsor-analytics";
 import { MediaCard } from "./MediaCard";
+import { SponsorCard } from "./SponsorCard";
 
 type Props = {
-  items: GalleryMedia[];
+  items: ComposedItem[];
+  filterKey: string;
+  sponsorAnalytics: SponsorAnalyticsConfig;
   favorites: Set<string>;
   onOpen: (id: string) => void;
   onToggleFav: (id: string) => void;
@@ -15,6 +20,8 @@ type Props = {
 
 export function MediaGrid({
   items,
+  filterKey,
+  sponsorAnalytics,
   favorites,
   onOpen,
   onToggleFav,
@@ -52,16 +59,31 @@ export function MediaGrid({
           media: [640, 1024, 1440],
           useBalancedLayout: true,
         }}
-        render={(item, idx) => (
-          <MediaCard
-            key={item.id}
-            item={item}
-            isFavorite={favorites.has(item.id)}
-            onOpen={() => onOpen(item.id)}
-            onToggleFav={() => onToggleFav(item.id)}
-            priority={idx < 4}
-          />
-        )}
+        render={(item, idx) => {
+          const key = composedItemId(item);
+
+          if (item.kind === "sponsor") {
+            return (
+              <SponsorCard
+                key={key}
+                item={item}
+                filterKey={filterKey}
+                analytics={sponsorAnalytics}
+              />
+            );
+          }
+
+          return (
+            <MediaCard
+              key={key}
+              item={item.data}
+              isFavorite={favorites.has(item.data.id)}
+              onOpen={() => onOpen(item.data.id)}
+              onToggleFav={() => onToggleFav(item.data.id)}
+              priority={idx < 4}
+            />
+          );
+        }}
       />
 
       {hasNextPage && (

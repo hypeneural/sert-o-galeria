@@ -41,6 +41,25 @@ export type GalleryPage = {
   data: GalleryMedia[];
   nextCursor: string | null;
   hasMore: boolean;
+  mediaStartIndex: number;
+};
+
+export type SponsorPlacement = "header" | "inline" | "footer" | "both";
+
+export type SponsorMode =
+  | "none"
+  | "footer_only"
+  | "inline_only"
+  | "inline_and_footer"
+  | "header_inline_footer";
+
+export type GallerySponsorRules = {
+  frequency?: number;
+  min_media_for_inline?: number;
+  mode?: SponsorMode;
+  order?: string;
+  loop?: boolean;
+  max_weight?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -73,6 +92,7 @@ export type GalleryManifest = {
     published_version: number;
     media_feed_url: string;
     min_refresh_interval_seconds: number;
+    sponsor_rules?: GallerySponsorRules | null;
   };
   capabilities: {
     photos: boolean;
@@ -91,6 +111,8 @@ export type GalleryManifest = {
       mode: string;
       url: string | null;
       source: string;
+      impression_url?: string | null;
+      click_url?: string | null;
     };
     realtime: {
       enabled: boolean;
@@ -117,11 +139,25 @@ export type GalleryManifest = {
 
 export type GallerySponsor = {
   public_id: string;
+  name?: string;
+  alt_text?: string;
+  link_url?: string | null;
   media_type: "image" | "video";
   mime_type: string | null;
   position: number;
+  priority?: number;
+  weight?: number;
+  placement?: SponsorPlacement;
+  status?: "active" | "inactive";
+  starts_at?: string | null;
+  ends_at?: string | null;
+  max_impressions?: number | null;
+  impression_count?: number;
+  click_count?: number;
   duration_seconds: number | null;
   display_duration_seconds: number | null;
+  actual_duration_seconds?: number | null;
+  max_playback_seconds?: number | null;
   playback_mode: string;
   width: number | null;
   height: number | null;
@@ -130,6 +166,17 @@ export type GallerySponsor = {
     asset: string;
     poster: string | null;
   };
+  responsive_sources?: {
+    sizes: string;
+    srcset: string;
+    variants: Array<{
+      variant_key: string;
+      src: string;
+      width: number;
+      height: number;
+      mime_type: string;
+    }>;
+  } | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -175,6 +222,7 @@ export type ApiMediaFeedResponse = {
     limit: number;
     next_cursor: string | null;
     has_more: boolean;
+    media_start_index?: number;
   };
   meta: {
     request_id: string;

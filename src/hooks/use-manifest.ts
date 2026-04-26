@@ -12,6 +12,16 @@ export function useManifest() {
     queryFn: ({ signal }) => fetchManifest(signal),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data?.capabilities.realtime.enabled) return false;
+      const seconds = Math.max(
+        data.capabilities.realtime.min_interval_seconds,
+        data.gallery.min_refresh_interval_seconds,
+        30,
+      );
+      return seconds * 1000;
+    },
     retry: (failureCount, error) => {
       if (error instanceof ApiError && !error.retryable) return false;
       return failureCount < 2;

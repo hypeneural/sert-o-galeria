@@ -19,12 +19,10 @@ export function useGalleryFeed({ mediaType, featured }: FeedOptions = {}) {
     queryFn: ({ pageParam, signal }) =>
       fetchGalleryFeed({ mediaType, featured, cursor: pageParam }, signal),
     initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.nextCursor : undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
     staleTime: 30_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
-    maxPages: 10,
     retry: (failureCount, error) => {
       if (error instanceof ApiError && !error.retryable) return false;
       return failureCount < 2;
@@ -35,13 +33,16 @@ export function useGalleryFeed({ mediaType, featured }: FeedOptions = {}) {
     () => query.data?.pages.flatMap((p) => p.data) ?? [],
     [query.data],
   );
+  const mediaStartIndex = query.data?.pages[0]?.mediaStartIndex ?? 0;
 
   return {
     items,
+    mediaStartIndex,
     isLoading: query.isLoading,
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage,
     fetchNextPage: query.fetchNextPage,
+    refetch: query.refetch,
     error: query.error,
     isError: query.isError,
   };
