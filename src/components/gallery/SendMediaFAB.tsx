@@ -64,7 +64,7 @@ export function SendMediaFAB() {
 
 function PulseButton({ onClick }: { onClick: () => void }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-5 safe-bottom pointer-events-none">
+    <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center justify-center gap-1.5 px-3 pb-3 safe-bottom pointer-events-none">
       <motion.button
         type="button"
         onClick={onClick}
@@ -88,6 +88,14 @@ function PulseButton({ onClick }: { onClick: () => void }) {
         <Camera className="h-6 w-6" />
         <span className="text-[17px] leading-tight">Enviar Fotos para o Telão!</span>
       </motion.button>
+      <a
+        href="https://eventovivo.com.br"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="pointer-events-auto rounded-full border border-primary/15 bg-background/80 px-2.5 py-0.5 font-mono text-[9px] font-semibold tracking-[0.18em] text-muted-foreground/80 shadow-sm backdrop-blur-md transition-colors hover:border-primary/30 hover:text-primary"
+      >
+        Tecnologia: <span className="text-primary">EventoVivo.com.br</span>
+      </a>
     </div>
   );
 }

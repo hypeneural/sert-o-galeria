@@ -16,6 +16,7 @@ import { MOCK_MEDIA } from "./media-data";
 // ---------------------------------------------------------------------------
 
 const PAGE_SIZE = 30;
+const SPONSORS_LIMIT = 50;
 
 /** Retorna true se a API real está configurada */
 function hasRealApi(): boolean {
@@ -182,7 +183,10 @@ export async function fetchGalleryFeed(
 export async function fetchSponsors(signal?: AbortSignal): Promise<GallerySponsor[]> {
   if (!hasRealApi()) return [];
 
-  const res = await fetchJson<ApiSponsorsResponse>(eventApiUrl("/sponsors"), signal);
+  const url = new URL(eventApiUrl("/sponsors"));
+  url.searchParams.set("limit", String(SPONSORS_LIMIT));
+
+  const res = await fetchJson<ApiSponsorsResponse>(url.toString(), signal);
   return res.sponsors;
 }
 
