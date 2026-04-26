@@ -63,6 +63,7 @@ function GalleryPage() {
 
   const [sort, setSort] = useState<SortKey>("recent");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sponsorRotationSeed] = useState(() => Math.random());
 
   // Manifest — buscar primeiro para capabilities e branding
   const { data: manifest, isLoading: manifestLoading, error: manifestError } = useManifest();
@@ -114,16 +115,18 @@ function GalleryPage() {
   );
   const headerSponsors = useMemo(() => {
     if (sponsorRules.mode !== "header_inline_footer") return [];
-    return selectSponsorsForPlacement(sponsors ?? [], "header", sponsorRules);
-  }, [sponsorRules, sponsors]);
+    return selectSponsorsForPlacement(sponsors ?? [], "header", sponsorRules, {
+      rotationSeed: sponsorRotationSeed,
+    });
+  }, [sponsorRotationSeed, sponsorRules, sponsors]);
 
   const composed = useMemo(
     () =>
       composeGallery(filteredMedia, sponsors ?? [], {
         rules: composedSponsorRules,
-        context: { filterKey: tab, mediaStartIndex },
+        context: { filterKey: tab, mediaStartIndex, rotationSeed: sponsorRotationSeed },
       }),
-    [composedSponsorRules, filteredMedia, mediaStartIndex, sponsors, tab],
+    [composedSponsorRules, filteredMedia, mediaStartIndex, sponsorRotationSeed, sponsors, tab],
   );
 
   // Media-only list (para o viewer — sem sponsors)

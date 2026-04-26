@@ -20,6 +20,7 @@ export type ResolvedSponsorRules = {
 export type ComposeGalleryContext = {
   filterKey?: string;
   mediaStartIndex?: number;
+  rotationSeed?: number;
   now?: Date;
 };
 
@@ -101,6 +102,7 @@ export function composeGallery(
   const context = options.context ?? {};
   const filterKey = context.filterKey ?? "todos";
   const mediaStartIndex = Math.max(0, context.mediaStartIndex ?? 0);
+  const rotationSeed = context.rotationSeed;
   const now = context.now ?? new Date();
   const mediaItems = media.map((item) => ({ kind: "media" as const, data: item }));
 
@@ -108,7 +110,7 @@ export function composeGallery(
     return { items: mediaItems, footerSponsors: [] };
   }
 
-  const normalized = normalizeSponsors(sponsors, rules, now);
+  const normalized = normalizeSponsors(sponsors, rules, now, rotationSeed);
   const showFooter = rules.mode !== "inline_only";
 
   if (!normalized.weightedInlinePool.length || rules.mode === "footer_only") {
@@ -175,9 +177,10 @@ export function normalizeSponsors(
   sponsors: GallerySponsor[],
   rules: ResolvedSponsorRules = DEFAULT_SPONSOR_RULES,
   now: Date = new Date(),
+  rotationSeed?: number,
 ): NormalizedSponsors {
   const eligible = sponsors.filter((sponsor) => isSponsorEligible(sponsor, now));
-  const sorted = [...eligible].sort(compareSponsors);
+  const sorted = shuffleSponsors([...eligible].sort(compareSponsors), rotationSeed);
 
   const inline =
     rules.mode === "footer_only"
@@ -204,9 +207,10 @@ export function selectSponsorsForPlacement(
   sponsors: GallerySponsor[],
   placement: SponsorDisplayPlacement,
   rulesInput?: GallerySponsorRules | ResolvedSponsorRules | null,
+  context?: Pick<ComposeGalleryContext, "rotationSeed">,
 ): GallerySponsor[] {
   const rules = resolveSponsorRules(rulesInput);
-  const normalized = normalizeSponsors(sponsors, rules);
+  const normalized = normalizeSponsors(sponsors, rules, new Date(), context?.rotationSeed);
   return normalized[placement];
 }
 
@@ -263,6 +267,30 @@ function compareSponsors(a: GallerySponsor, b: GallerySponsor): number {
   if (priorityA !== priorityB) return priorityA - priorityB;
   if (a.position !== b.position) return a.position - b.position;
   return a.public_id.localeCompare(b.public_id);
+}
+
+function shuffleSponsors(sponsors: GallerySponsor[], seed: number | undefined): GallerySponsor[] {
+  if (typeof seed !== "number" || !Number.isFinite(seed) || sponsors.length < 2) {
+    return sponsors;
+  }
+
+  const shuffled = [...sponsors];
+  const random = seededRandom(seed);
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
+}
+
+function seededRandom(seed: number): () => number {
+  let state = Math.trunc(Math.abs(seed) * 0xffffffff) || 1;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
 }
 
 function isSponsorEligible(sponsor: GallerySponsor, now: Date): boolean {

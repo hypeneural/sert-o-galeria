@@ -139,4 +139,31 @@ describe("composeGallery", () => {
     expect(inlineSponsors(composed)).toHaveLength(0);
     expect(composed.footerSponsors.map((item) => item.public_id)).toEqual(["s1", "s2"]);
   });
+
+  it("randomizes sponsor rotation deterministically per page-load seed", () => {
+    const sponsors = [
+      sponsor("s1"),
+      sponsor("s2"),
+      sponsor("s3"),
+      sponsor("s4"),
+      sponsor("s5"),
+      sponsor("s6"),
+    ];
+    const first = composeGallery(media(30), sponsors, {
+      context: { rotationSeed: 0.12345 },
+    });
+    const second = composeGallery(media(30), sponsors, {
+      context: { rotationSeed: 0.12345 },
+    });
+    const third = composeGallery(media(30), sponsors, {
+      context: { rotationSeed: 0.98765 },
+    });
+
+    const firstOrder = inlineSponsors(first).map((item) => item.data.public_id);
+    const secondOrder = inlineSponsors(second).map((item) => item.data.public_id);
+    const thirdOrder = inlineSponsors(third).map((item) => item.data.public_id);
+
+    expect(secondOrder).toEqual(firstOrder);
+    expect(thirdOrder).not.toEqual(firstOrder);
+  });
 });

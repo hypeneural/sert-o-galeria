@@ -15,7 +15,7 @@ const CHANNELS = [
   {
     id: "whatsapp-direct",
     label: "WhatsApp Direto",
-    description: "Envie direto para o fotógrafo",
+    description: "Envie direto pelo WhatsApp",
     url: "https://api.whatsapp.com/send/?phone=5548996553954&text=Oi",
     icon: MessageCircle,
     color: "#128C7E",
@@ -53,9 +53,7 @@ export function SendMediaFAB() {
     <>
       <PulseButton onClick={() => setOpen(true)} />
 
-      <AnimatePresence>
-        {open && <ChannelSheet onClose={() => setOpen(false)} />}
-      </AnimatePresence>
+      <AnimatePresence>{open && <ChannelSheet onClose={() => setOpen(false)} />}</AnimatePresence>
     </>
   );
 }
@@ -152,9 +150,7 @@ function ChannelSheet({ onClose }: { onClose: () => void }) {
                 <Camera className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground">
-                  Enviar para o Telão
-                </h2>
+                <h2 className="text-lg font-bold text-foreground">Enviar para o Telão</h2>
                 <p className="text-[13px] text-muted-foreground">
                   Escolha como enviar fotos ou vídeos
                 </p>

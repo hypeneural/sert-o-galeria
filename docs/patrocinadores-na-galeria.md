@@ -562,6 +562,7 @@ Tarefas:
 - [x] decidir se a aba `favoritos` mostra footer apenas ou nenhum sponsor;
 - [x] condicionar `SponsorBanner` ao modo `header` em vez de renderizar sempre.
 - [x] remover `maxPages: 10` no curto prazo ou manter apenas depois que `media_start_index` existir no backend.
+- [x] randomizar a ordem de rotação dos banners/patrocinadores a cada carregamento de página.
 
 ### Fase 2 - Composer robusto e testado
 
@@ -576,6 +577,7 @@ Adicionar testes unitarios para:
 - [x] sponsors com `placement: "footer"`;
 - [x] key unica quando o mesmo sponsor aparece em loop;
 - [x] `mediaStartIndex` diferente de 0.
+- [x] randomizacao estavel por seed de carregamento de pagina.
 
 Se o projeto nao quiser adicionar runner agora, a opcao minima e incluir Vitest:
 
